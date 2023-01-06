@@ -18,6 +18,7 @@ use std::{
     sync::Arc,
     task::{Context, Poll},
 };
+use futures::stream::AbortHandle;
 use tokio::time::Interval;
 use tracing::trace;
 
@@ -48,7 +49,7 @@ impl NodeService {
         backend: Arc<Backend>,
         miner: Miner,
         fee_history: FeeHistoryService,
-        filters: Filters,
+        filters: Filters
     ) -> Self {
         let start = tokio::time::Instant::now() + filters.keep_alive();
         let filter_eviction_interval = tokio::time::interval_at(start, filters.keep_alive());
@@ -58,7 +59,7 @@ impl NodeService {
             miner,
             fee_history,
             filter_eviction_interval,
-            filters,
+            filters
         }
     }
 }

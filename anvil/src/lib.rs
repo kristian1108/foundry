@@ -23,6 +23,7 @@ use ethers::{
 };
 use foundry_evm::revm;
 use futures::{FutureExt, TryFutureExt};
+use futures::future::{Abortable, AbortHandle};
 use parking_lot::Mutex;
 use std::{
     future::Future,
@@ -158,8 +159,10 @@ pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
     );
 
     // spawn the node service
-    let node_service =
-        tokio::task::spawn(NodeService::new(pool, backend, miner, fee_history_service, filters));
+    let (node_abort_handle, node_abort_registration) = AbortHandle::new_pair();
+    let node_future = NodeService::new(pool, backend, miner, fee_history_service, filters);
+    let node_future = Abortable::new(node_future, node_abort_registration);
+    let node_service = tokio::task::spawn(node_future);
 
     let host = config.host.unwrap_or(IpAddr::V4(Ipv4Addr::LOCALHOST));
     let mut addr = SocketAddr::new(host, port);
@@ -171,12 +174,21 @@ pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
     // spawn the server on a new task
     let serve = tokio::task::spawn(server.map_err(NodeError::from));
 
-    // select over both tasks
-    let inner = futures::future::select(node_service, serve);
-
     let tokio_handle = Handle::current();
     let (signal, on_shutdown) = shutdown::signal();
-    let task_manager = TaskManager::new(tokio_handle, on_shutdown);
+    let task_manager = TaskManager::new(tokio_handle, on_shutdown.clone());
+
+    // select over both tasks
+    let select_handle = tokio::spawn(async move {
+        tokio::select! {
+            r = node_service => Ok(r.unwrap().unwrap()),
+            r = serve => r,
+            _ = on_shutdown => {
+                node_abort_handle.abort();
+                Ok(NodeResult::Ok(()))
+            }
+        }
+    });
 
     let ipc_task = config.get_ipc_path().map(|path| spawn_ipc(api.clone(), path));
 
@@ -184,7 +196,7 @@ pub async fn spawn(mut config: NodeConfig) -> (EthApi, NodeHandle) {
         config,
         inner: Box::pin(async move {
             // wait for the first task to finish
-            inner.await.into_inner().0
+            select_handle.await.unwrap()
         }),
         ipc_task,
         address: addr,

@@ -1,3 +1,5 @@
+use std::thread::JoinHandle;
+
 /// Result alias
 pub type NodeResult<T> = Result<T, NodeError>;
 
@@ -7,5 +9,5 @@ pub enum NodeError {
     #[error(transparent)]
     Hyper(#[from] hyper::Error),
     #[error(transparent)]
-    Io(#[from] std::io::Error),
+    Io(#[from] std::io::Error)
 }
