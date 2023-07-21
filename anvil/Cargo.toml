@@ -25,6 +25,8 @@ foundry-common = { path = "../common", optional = true }
 forge = { path = "../forge", optional = true }
 foundry-config = { path = "../config" }
 
+log = "0.4.19"
+
 # evm support
 bytes = "1.4.0"
 ethers = { workspace = true, features = ["rustls", "ws", "ipc"] }

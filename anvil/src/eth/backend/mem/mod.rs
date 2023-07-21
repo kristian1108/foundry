@@ -94,6 +94,8 @@ use tokio::sync::RwLock as AsyncRwLock;
 use tracing::{trace, warn};
 use trie_db::{Recorder, Trie};
 
+use log::error;
+
 pub mod cache;
 pub mod fork_db;
 pub mod in_memory_db;
@@ -1188,7 +1190,7 @@ impl Backend {
         hash: H256,
     ) -> Result<Vec<Log>, BlockchainError> {
         if let Some(block) = self.blockchain.storage.read().blocks.get(&hash).cloned() {
-            return Ok(self.mined_logs_for_block(filter, block))
+            return Ok(self.mined_logs_for_block(filter, block, self.blockchain.storage.is_locked()))
         }
 
         if let Some(fork) = self.get_fork() {
@@ -1200,14 +1202,18 @@ impl Backend {
     }
 
     /// Returns all `Log`s mined by the node that were emitted in the `block` and match the `Filter`
-    fn mined_logs_for_block(&self, filter: Filter, block: Block) -> Vec<Log> {
+    fn mined_logs_for_block(&self, filter: Filter, block: Block, is_already_locked: bool) -> Vec<Log> {
         let params = FilteredParams::new(Some(filter.clone()));
         let mut all_logs = Vec::new();
         let block_hash = block.header.hash();
         let mut block_log_index = 0u32;
 
+        if is_already_locked {
+            error!(target: "lock_trace", "now inside mined_logs_for_block, is_already_locked: {is_already_locked:?}");
+        }
+
         let transactions: Vec<_> = {
-            let storage = self.blockchain.storage.read_recursive();
+            let storage = self.blockchain.storage.read();
             block
                 .transactions
                 .iter()
@@ -1292,7 +1298,7 @@ impl Backend {
 
         for number in from..=to {
             if let Some(block) = self.get_block(number) {
-                all_logs.extend(self.mined_logs_for_block(filter.clone(), block));
+                all_logs.extend(self.mined_logs_for_block(filter.clone(), block, self.blockchain.storage.is_locked()));
             }
         }
 
