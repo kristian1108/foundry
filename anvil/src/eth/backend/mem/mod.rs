@@ -1207,7 +1207,7 @@ impl Backend {
         let mut block_log_index = 0u32;
 
         let transactions: Vec<_> = {
-            let storage = self.blockchain.storage.read();
+            let storage = self.blockchain.storage.read_recursive();
             block
                 .transactions
                 .iter()
