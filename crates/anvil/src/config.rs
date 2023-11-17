@@ -28,7 +28,6 @@ use ethers::{
     utils::{format_ether, hex, to_checksum, WEI_IN_ETHER},
 };
 use foundry_common::{
-    types::{ToAlloy, ToEthers},
     ProviderBuilder, ALCHEMY_FREE_TIER_CUPS, NON_ARCHIVE_NODE_WARNING, REQUEST_TIMEOUT,
 };
 use foundry_config::Config;
@@ -39,6 +38,7 @@ use foundry_evm::{
     revm::primitives::{BlockEnv, CfgEnv, SpecId, TxEnv, U256 as rU256},
     utils::apply_chain_and_block_specific_env_changes,
 };
+use foundry_utils::types::{ToAlloy, ToEthers};
 use parking_lot::RwLock;
 use serde_json::{json, to_writer, Value};
 use std::{
@@ -169,8 +169,6 @@ pub struct NodeConfig {
     pub transaction_block_keeper: Option<usize>,
     /// Disable the default CREATE2 deployer
     pub disable_default_create2_deployer: bool,
-    /// Enable Optimism deposit transaction
-    pub enable_optimism: bool,
 }
 
 impl NodeConfig {
@@ -408,7 +406,6 @@ impl Default for NodeConfig {
             init_state: None,
             transaction_block_keeper: None,
             disable_default_create2_deployer: false,
-            enable_optimism: false,
         }
     }
 }
